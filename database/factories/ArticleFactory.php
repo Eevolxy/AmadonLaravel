@@ -16,14 +16,16 @@ class ArticleFactory extends Factory
      */
     public function definition(): array
     {
+        $categories = ['électronique', 'vêtements', 'maison', 'sport', 'livres', 'beauté', 'jouets', 'alimentation'];
+
         return [
-            'titre' => fake()->name(),
-            'description' => fake()->text(),
+            'titre' => fake()->words(rand(2, 5), true),
+            'description' => fake()->paragraphs(rand(1, 3), true),
             'note' => fake()->numberBetween(1, 5),
-            'prix' => fake()->numberBetween(1, 1000),
-            'categorie' => fake()->word(),
-            'image' => fake()->imageUrl(),
-            'user_id' => User::all()->random()->id,
+            'prix' => fake()->randomFloat(2, 5, 500),
+            'categorie' => fake()->randomElement($categories),
+            'image' => 'https://picsum.photos/seed/' . fake()->unique()->randomNumber(5) . '/400/400',
+            'user_id' => User::inRandomOrder()->first()?->id ?? User::factory(),
         ];
     }
 }
