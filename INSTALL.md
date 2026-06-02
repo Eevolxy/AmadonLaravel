@@ -5,7 +5,7 @@ Ce guide vous explique **deux manières** de faire tourner le projet en local :
 | Méthode | Résumé | Quand l'utiliser |
 |---------|--------|-----------------|
 | **[Méthode 1 — Laravel Sail + Docker](#méthode-1--laravel-sail--docker-recommandé)** | Environnement Docker complet (PHP, MySQL, Mailpit) | Environnement reproductible, pas besoin d'installer PHP/MySQL sur la machine |
-| **[Méthode 2 — Mode natif](#méthode-2--mode-natif-php-artisan-serve--npm-run-dev)** | PHP + SQLite en local, pas de Docker | Installation rapide, léger, idéal pour du dev rapide |
+| **[Méthode 2 — Mode natif](#méthode-2--mode-natif-php-artisan-serve--npm-run-dev)** | PHP + MySQL en local, pas de Docker | Installation rapide, idéal pour du dev rapide |
 
 ---
 
@@ -289,22 +289,25 @@ VITE_PORT=5174
 
 ## Méthode 2 — Mode natif (`php artisan serve` + `npm run dev`)
 
-Cette méthode ne nécessite **pas Docker**. Elle utilise le serveur intégré de PHP et une base SQLite.
+Cette méthode ne nécessite **pas Docker**. Elle utilise le serveur intégré de PHP et une base **MySQL** locale.
 
 ### 2.1 Prérequis spécifiques
 
 | Outil | Version minimale | Vérification |
-|-------|-----------------|--------------|
+|-------|-----------------|---------------|
 | **PHP** | ≥ 8.2 | `php -v` |
 | **Composer** | ≥ 2.x | `composer -V` |
+| **MySQL** | ≥ 8.0 | `mysql --version` |
 | **Node.js** | ≥ 18 | `node -v` |
 | **npm** | ≥ 9 | `npm -v` |
+
+> 💡 **Sous Windows**, [Laragon](https://laragon.org/) ou [XAMPP](https://www.apachefriends.org/) fournissent PHP et MySQL ensemble.
 
 #### Extensions PHP requises
 
 Laravel 12 nécessite les extensions suivantes (la plupart sont activées par défaut) :
 
-- `pdo_sqlite` (pour SQLite)
+- `pdo_mysql` (pour MySQL)
 - `mbstring`
 - `openssl`
 - `tokenizer`
@@ -321,7 +324,7 @@ Pour vérifier les extensions installées :
 php -m
 ```
 
-> 💡 **Sous Windows**, si vous utilisez [Laragon](https://laragon.org/) ou [XAMPP](https://www.apachefriends.org/), la plupart des extensions sont déjà activées. Sinon, décommentez les lignes correspondantes dans votre `php.ini`.
+> 💡 Si vous utilisez Laragon ou XAMPP, la plupart des extensions sont déjà activées. Sinon, décommentez les lignes correspondantes dans votre `php.ini`.
 
 ---
 
@@ -346,24 +349,42 @@ npm install
 
 ---
 
-### 2.4 Configurer l'environnement
+### 2.4 Créer la base de données MySQL
+
+Connectez-vous à MySQL et créez la base de données :
+
+```bash
+mysql -u root -p
+```
+
+```sql
+CREATE DATABASE amadon CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+EXIT;
+```
+
+> 💡 Si votre utilisateur `root` n'a pas de mot de passe (cas par défaut avec Laragon/XAMPP), utilisez simplement `mysql -u root`.
+
+---
+
+### 2.5 Configurer l'environnement
 
 ```bash
 # Copier le fichier d'environnement
 cp .env.example .env
 ```
 
-Le `.env.example` est **déjà configuré pour SQLite** (`DB_CONNECTION=sqlite`). Pas besoin de modifier la configuration de la base de données.
+Éditez le fichier `.env` pour configurer la **connexion MySQL** :
 
-Créez le fichier de base de données SQLite :
-
-```bash
-# Linux / macOS
-touch database/database.sqlite
-
-# Windows (PowerShell)
-New-Item database/database.sqlite -ItemType File
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=amadon
+DB_USERNAME=root
+DB_PASSWORD=
 ```
+
+> 📝 Adaptez `DB_USERNAME` et `DB_PASSWORD` selon votre configuration MySQL locale.
 
 Générez la clé d'application :
 
@@ -373,7 +394,7 @@ php artisan key:generate
 
 ---
 
-### 2.5 Exécuter les migrations et les seeders
+### 2.6 Exécuter les migrations et les seeders
 
 ```bash
 # Créer les tables
@@ -391,7 +412,7 @@ php artisan db:seed
 
 ---
 
-### 2.6 Lancer le projet
+### 2.7 Lancer le projet
 
 #### Option A — Tout lancer d'un coup (recommandé)
 
@@ -427,7 +448,7 @@ npm run dev
 
 ---
 
-### 2.7 Accéder à l'application
+### 2.8 Accéder à l'application
 
 | Service | URL |
 |---------|-----|
@@ -438,12 +459,12 @@ npm run dev
 
 ---
 
-### 2.8 Résolution de problèmes courants (mode natif)
+### 2.9 Résolution de problèmes courants (mode natif)
 
 <details>
-<summary><strong>❌ "Could not find driver" (SQLite)</strong></summary>
+<summary><strong>❌ "Could not find driver" (MySQL)</strong></summary>
 
-L'extension `pdo_sqlite` n'est pas activée. Ouvrez votre `php.ini` :
+L'extension `pdo_mysql` n'est pas activée. Ouvrez votre `php.ini` :
 
 ```bash
 php --ini   # pour trouver le chemin du php.ini
@@ -452,10 +473,35 @@ php --ini   # pour trouver le chemin du php.ini
 Décommentez la ligne :
 
 ```ini
-extension=pdo_sqlite
+extension=pdo_mysql
 ```
 
 Redémarrez votre serveur.
+
+</details>
+
+<details>
+<summary><strong>❌ "Access denied for user 'root'@'localhost'"</strong></summary>
+
+Vérifiez les identifiants dans votre `.env` :
+
+```dotenv
+DB_USERNAME=root
+DB_PASSWORD=votre_mot_de_passe
+```
+
+Assurez-vous que l'utilisateur MySQL a les droits sur la base `amadon`.
+
+</details>
+
+<details>
+<summary><strong>❌ "Unknown database 'amadon'"</strong></summary>
+
+La base n'a pas été créée. Connectez-vous à MySQL et exécutez :
+
+```sql
+CREATE DATABASE amadon CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
 </details>
 
@@ -501,10 +547,10 @@ Puis relancez `composer dev`.
 
 | | Sail + Docker | Mode natif |
 |---|---|---|
-| **Base de données** | MySQL 8.4 | SQLite |
+| **Base de données** | MySQL 8.4 (Docker) | MySQL (local) |
 | **Serveur web** | Nginx (via Sail) sur le port `80` | Serveur PHP intégré sur le port `8000` |
 | **Emails** | Mailpit (interface web sur `8025`) | Logs (`storage/logs/laravel.log`) |
-| **Prérequis machine** | Docker Desktop + WSL 2 | PHP ≥ 8.2, Composer, Node.js |
+| **Prérequis machine** | Docker Desktop + WSL 2 | PHP ≥ 8.2, Composer, MySQL ≥ 8.0, Node.js |
 | **Performance** | Dépend de la config Docker/WSL | Natif, très rapide |
 | **Commande de lancement** | `sail up -d` + `sail npm run dev` | `composer dev` |
 | **Idéal pour** | Environnement reproductible, équipe | Dev solo rapide |
